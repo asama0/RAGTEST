@@ -1,5 +1,5 @@
 import os
-from app.document_loader import extract_text_from_file, chunk_text
+from .document_loader import extract_text_from_file, chunk_text
 from sentence_transformers import SentenceTransformer
 import chromadb
 

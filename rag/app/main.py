@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from app.memory import add_user_message, add_ai_message, get_recent_history
-from app.llm_client import send_to_llm
-from app.rag import query_documents, load_all_files_from_folder, add_file_to_vector_store
+from .memory import add_user_message, add_ai_message, get_recent_history
+from .llm_client import send_to_llm
+from .rag import query_documents, load_all_files_from_folder, add_file_to_vector_store
 
 app = FastAPI()
 load_all_files_from_folder("./documents")
