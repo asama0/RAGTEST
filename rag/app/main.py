@@ -36,5 +36,4 @@ async def upload_file(file: UploadFile = File(...)):
     file_path = f"./documents/{file.filename}"
     with open(file_path, "wb") as f:
         f.write(await file.read())
-    add_file_to_vector_store(file_path)
-    return {"message": "File uploaded and indexed."}
+    add_file_to_vector_store(file_path)    return {"message": "File uploaded and indexed."}
