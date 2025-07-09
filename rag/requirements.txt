@@ -3,5 +3,5 @@ uvicorn
 requests
 chromadb
 sentence-transformers
-PyMuPDF
-python-docx
+PyMuPDFpython-docx
+pytest
