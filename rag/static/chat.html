@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chat</title>
+    <style>
+        :root {
+            --primary:       #6C63FF;
+            --primary-dark:  #5548e8;
+            --gradient:      linear-gradient(135deg, #6C63FF 0%, #9b59b6 100%);
+            --bg:            #eef0f6;
+            --surface:       #ffffff;
+            --surface2:      #f4f6fb;
+            --border:        #e2e6f0;
+            --text:          #1c1e2e;
+            --text-muted:    #7a8099;
+            --success:       #10b981;
+            --error:         #ef4444;
+            --info:          #6C63FF;
+            --radius:        20px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        /* ── Container ── */
+        .chat-container {
+            width: 100%;
+            max-width: 880px;
+            height: 94vh;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: 0 28px 80px rgba(108,99,255,.22), 0 6px 24px rgba(0,0,0,.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .chat-header {
+            background: var(--gradient);
+            color: #fff;
+            padding: 16px 22px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        .header-logo {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,.18);
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .header-info { flex: 1; min-width: 0; }
+
+        .header-info h1 {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -.3px;
+        }
+
+        .header-status {
+            font-size: 11.5px;
+            opacity: .8;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 2px;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulseDot 2.4s infinite;
+        }
+
+        @keyframes pulseDot {
+            0%,100% { opacity:1; }
+            50%      { opacity:.35; }
+        }
+
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+
+        .llm-pill {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(255,255,255,.16);
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 10px;
+            padding: 6px 12px;
+            transition: background .2s;
+        }
+        .llm-pill:hover { background: rgba(255,255,255,.26); }
+
+        .llm-pill-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .7px;
+            text-transform: uppercase;
+            opacity: .75;
+        }
+
+        #llm-select {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #llm-select option { background: #5548e8; }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            background: rgba(255,255,255,.16);
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .2s;
+            color: #fff;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,.28); }
+
+        /* ── Toasts ── */
+        .toast-container {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: #fff;
+            border-radius: 12px;
+            padding: 11px 15px;
+            box-shadow: 0 10px 28px rgba(0,0,0,.14);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 260px;
+            max-width: 340px;
+            pointer-events: all;
+            animation: toastIn .3s ease;
+            border-left: 4px solid var(--primary);
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error   { border-left-color: var(--error); }
+
+        .toast-icon { flex-shrink: 0; width: 18px; height: 18px; }
+        .toast-text { font-size: 13px; color: var(--text); line-height: 1.4; flex:1; }
+
+        @keyframes toastIn  { from { opacity:0; transform:translateX(32px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes toastOut { from { opacity:1; transform:translateX(0);    } to { opacity:0; transform:translateX(32px); } }
+
+        /* ── Chat history ── */
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 22px 24px;
+            background: var(--surface2);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            scroll-behavior: smooth;
+        }
+
+        /* Date divider */
+        .date-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0 16px;
+        }
+        .date-divider::before,
+        .date-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        .date-divider span {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            white-space: nowrap;
+        }
+
+        /* Message groups */
+        .msg-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-bottom: 14px;
+        }
+        .msg-group.user { align-items: flex-end; }
+        .msg-group.bot  { align-items: flex-start; }
+
+        .msg-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin: 0 4px 3px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .msg-group.user .msg-meta { justify-content: flex-end; }
+
+        .msg-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 9px;
+        }
+        .msg-group.user .msg-row { flex-direction: row-reverse; }
+
+        /* Avatar */
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: -.5px;
+        }
+        .avatar.bot-av  { background: var(--gradient); color: #fff; }
+        .avatar.user-av { background: linear-gradient(135deg,#10b981,#059669); color: #fff; }
+
+        /* Bubble */
+        .bubble {
+            max-width: 68%;
+            padding: 11px 15px;
+            border-radius: 18px;
+            animation: msgIn .22s ease;
+            word-break: break-word;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        @keyframes msgIn {
+            from { opacity:0; transform:translateY(7px) scale(.97); }
+            to   { opacity:1; transform:translateY(0)   scale(1);   }
+        }
+
+        .msg-group.user .bubble {
+            background: var(--gradient);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .msg-group.bot .bubble {
+            background: #fff;
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.07);
+        }
+
+        /* Markdown inside bubbles */
+        .bubble code {
+            background: rgba(0,0,0,.1);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 12.5px;
+            font-family: 'Fira Code','Courier New',monospace;
+        }
+        .msg-group.user .bubble code { background: rgba(255,255,255,.2); }
+
+        .bubble pre {
+            background: rgba(0,0,0,.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            overflow-x: auto;
+            margin-top: 8px;
+            font-size: 12px;
+            font-family: 'Fira Code','Courier New',monospace;
+        }
+        .bubble strong { font-weight: 700; }
+        .bubble em     { font-style: italic; }
+
+        /* Typing indicator */
+        .typing-bubble {
+            padding: 13px 16px;
+            background: #fff;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.07);
+            width: fit-content;
+            animation: msgIn .22s ease;
+        }
+        .typing-dots { display:flex; gap:4px; align-items:center; }
+        .typing-dots span {
+            width: 7px; height: 7px;
+            background: #c8cfe0;
+            border-radius: 50%;
+            animation: typingBounce 1.3s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(2) { animation-delay:.16s; }
+        .typing-dots span:nth-child(3) { animation-delay:.32s; }
+        @keyframes typingBounce {
+            0%,60%,100% { transform:translateY(0);    background:#c8cfe0; }
+            30%         { transform:translateY(-7px);  background:var(--primary); }
+        }
+
+        /* ── Input area ── */
+        .input-area {
+            padding: 14px 20px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        /* Upload toggle row */
+        .upload-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 10px;
+            background: var(--surface2);
+            transition: border-color .2s, color .2s;
+            user-select: none;
+        }
+        .upload-row:hover         { border-color: var(--primary); color: var(--primary); }
+        .upload-row.success-state { border-color: var(--success); color: var(--success); background: #f0fdf4; }
+
+        .upload-row-text { flex:1; }
+        .chevron { transition: transform .2s; flex-shrink: 0; }
+        .chevron.open { transform: rotate(180deg); }
+
+        /* Drop zone */
+        .drop-zone {
+            display: none;
+            padding: 22px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            background: var(--surface2);
+            margin-bottom: 10px;
+        }
+        .drop-zone.open          { display: block; }
+        .drop-zone:hover,
+        .drop-zone.drag-over     { border-color: var(--primary); background: #f0eeff; }
+        .drop-zone.drag-over svg { transform: scale(1.12); }
+        .drop-zone svg           { display: block; margin: 0 auto 10px; color: var(--primary); opacity:.55; transition: transform .2s, opacity .2s; }
+        .drop-zone:hover svg,
+        .drop-zone.drag-over svg { opacity: .9; }
+        .drop-zone-label         { font-size: 13px; color: var(--text-muted); }
+        .drop-zone-label strong  { color: var(--primary); }
+        .drop-zone-hint          { font-size: 11px; color: var(--text-muted); opacity: .7; margin-top: 4px; }
+
+        /* Progress bar */
+        .upload-progress { display:none; margin-bottom:10px; }
+        .upload-progress.active { display:block; }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .progress-track {
+            height: 6px;
+            background: var(--border);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient);
+            border-radius: 100px;
+            width: 0%;
+            transition: width .3s ease;
+        }
+
+        /* Text input row */
+        .input-row { display:flex; gap:9px; align-items:flex-end; }
+
+        .input-wrap {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            background: var(--surface2);
+            transition: border-color .2s, background .2s;
+            overflow: hidden;
+        }
+        .input-wrap:focus-within {
+            border-color: var(--primary);
+            background: #fff;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            resize: none;
+            font-family: inherit;
+            color: var(--text);
+            max-height: 130px;
+            min-height: 46px;
+            outline: none;
+            line-height: 1.55;
+        }
+        #user-input::placeholder { color: #b0b9cc; }
+
+        .send-btn {
+            width: 46px;
+            height: 46px;
+            flex-shrink: 0;
+            background: var(--gradient);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform .15s, box-shadow .15s, opacity .2s;
+            color: #fff;
+        }
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108,99,255,.4);
+        }
+        .send-btn:active:not(:disabled) { transform: translateY(0); }
+        .send-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* Hint text */
+        .input-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 8px;
+            opacity: .7;
+        }
+
+        /* Scrollbar */
+        .chat-history::-webkit-scrollbar { width: 5px; }
+        .chat-history::-webkit-scrollbar-track { background: transparent; }
+        .chat-history::-webkit-scrollbar-thumb { background: #d2d7e6; border-radius: 10px; }
+        .chat-history::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { padding: 0; }
+            .chat-container { height: 100dvh; border-radius: 0; box-shadow: none; }
+            .bubble { max-width: 84%; }
+            .chat-header { padding: 13px 16px; }
+            .chat-history { padding: 14px 16px; }
+            .input-area { padding: 12px 14px; }
+            .llm-pill-label { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Toasts -->
+<div class="toast-container" id="toast-container"></div>
+
+<div class="chat-container">
+
+    <!-- Header -->
+    <div class="chat-header">
+        <div class="header-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+        </div>
+
+        <div class="header-info">
+            <h1>RAG Chat</h1>
+            <div class="header-status">
+                <span class="status-dot"></span>
+                Document-aware assistant
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <div class="llm-pill">
+                <span class="llm-pill-label">Model</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+                </svg>
+                <select id="llm-select">
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="openai">GPT-4</option>
+                    <option value="anthropic">Claude 3.5</option>
+                    <option value="groq">Groq Llama</option>
+                </select>
+            </div>
+
+            <button class="icon-btn" id="clear-btn" title="Clear chat">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-history" id="chat-history">
+        <div class="date-divider">
+            <span id="date-label">Today</span>
+        </div>
+
+        <!-- Welcome message -->
+        <div class="msg-group bot">
+            <div class="msg-meta">RAG Assistant</div>
+            <div class="msg-row">
+                <div class="avatar bot-av">AI</div>
+                <div class="bubble">
+                    Hello! I'm your RAG assistant. Ask me anything about your indexed documents,
+                    or upload a new file below to expand my knowledge base.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+
+        <!-- Upload toggle -->
+        <div class="upload-row" id="upload-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span class="upload-row-text" id="upload-row-text">Upload a document</span>
+            <svg class="chevron" id="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="drop-zone">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9"  y1="15" x2="15" y2="15"/>
+            </svg>
+            <div class="drop-zone-label"><strong>Click to browse</strong> or drag &amp; drop</div>
+            <div class="drop-zone-hint">PDF &bull; DOCX &bull; TXT &bull; MD</div>
+            <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" style="display:none">
+        </div>
+
+        <!-- Upload progress -->
+        <div class="upload-progress" id="upload-progress">
+            <div class="progress-header">
+                <span id="progress-name">Uploading...</span>
+                <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Message input -->
+        <div class="input-row">
+            <div class="input-wrap">
+                <textarea id="user-input" placeholder="Ask anything about your documents..." rows="1"></textarea>
+            </div>
+            <button class="send-btn" id="send-btn" disabled>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="input-hint">Press Enter to send &nbsp;&bull;&nbsp; Shift+Enter for new line</div>
+    </div>
+
+</div>
+
+<script src="/static/chat.js"></script>
+</body>
+</html>
